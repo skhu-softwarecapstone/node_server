@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Add Notice</title>
+    </head>
+    <body>
+        <form method="post" action="/process/addnotice">
+            <table>
+                <tr>
+                    <td><label>Title</label></td>
+                    <td><input type="text" name="title"></td>
+                </tr>
+                <tr>
+                    <td><label>Content</label></td>
+                    <td><input type="text" name="content"></td>
+                </tr>
+            </table>
+            <input type="button" value="send" onclick="httpRequest"/>
+            <input type="submit" value="전송" name="">
+        </form>
+        <form method="post" action="/process/listuser">
+            <input type="submit" value="사용자리스트" name=""/>
+        </form>
+
+        <script type="text/javascript">
+            var httpRequest = new XMLHttpRequest();
+
+            var httpRequest = function() {
+            for(i=0; i<100; i++) {
+            httpRequest.open("POST", "http://localhost:3000/addnotice", true);
+            httpRequest.send(`title=${i}title&conteont=${i}content`);
+            }
+        }
+        </script>
+    </body>
+</html>

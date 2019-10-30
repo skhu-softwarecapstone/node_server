@@ -1,0 +1,387 @@
+// Express 모듈 불러오기
+var express = require('express'),
+    http = require('http'),
+    path = require('path');
+
+// Express 미들 웨어 불러오기
+var bodyParser = require('body-parser'),
+    cookieParser = require('cookie-parser'),
+    static = require('serve-static'),
+    errorHandler = require('errorhandler');
+
+// 오류 핸들러 사용
+var expressErrorHandler = require('express-error-handler');
+
+// Session 미들웨어 불러오기
+var expressSession = require('express-session');
+
+//익스프레스 객체 생성
+var app = express();
+
+// 기본 속성 설정
+
+app.set('port', process.env.PORT || 3000);
+
+// body-parser를 사용해 application/x-www-form-urlencoded 파싱
+app.use(bodyParser.urlencoded({extended:false}));
+
+// body-parser를 사용해 application/json 파싱
+app.use(bodyParser.json());
+
+// public 폴더를 static으로 오픈
+app.use('/public', static(path.join(__dirname, 'public')));
+
+// cooike-parser 설정
+app.use(cookieParser());
+
+// 세션 설정
+app.use(expressSession({
+    secret: 'my key',
+    resave: true,
+    saveUninitialzed: true
+}));
+
+// 몽고디비 모듈 사용
+var MongoClient = require('mongodb').MongoClient;
+
+// 데이터베이스 객체를 위한 변수 선언
+var database;
+
+// 데이버테이스에 연결
+function connectDB() {
+    //데이터베이스 연결 정보
+    var databaseUrl = 'mongodb://localhost:27017';
+
+    //데이터베이스 연결
+    MongoClient.connect(databaseUrl ,{useNewUrlParser: true, useUnifiedTopology: true}, function(err, client){
+        if(err) throw err;
+
+        console.log('데이터베이스에 연결되었습니다: ' + databaseUrl);
+
+        // database 변수에 할당;
+        database = client.db('test');
+        
+    });
+}
+//라우터 객체 참조
+
+// mongoose 모듈 불러들이기
+var mongoose = require('mongoose');
+
+// 데이터베이스 객체를 위한 변수 선언
+var database;
+
+// 데이터베이스 모델 객체를 위한 변수 선언
+var UserModel;
+
+// 데이터베이스에 연결
+function connectDB() {
+    // 데이터베이스 연결 정보
+    var databaseUrl = 'mongodb://localhost:27017/test';
+
+    // 데이터베이스 연결
+    console.log('데이터베이스 연결을 시도합니다');
+    mongoose.Promise = global.Promise;
+    mongoose.connect(databaseUrl, {useNewUrlParser: true, useUnifiedTopology: true});
+    database = mongoose.connection;
+
+    database.on('error', console.error.bind(console, 'mongoose connection error'));
+    database.on('open', function(){
+        console.log('데이터베이스에 연결되었습니다.: ' + databaseUrl);
+    })
+
+    // 스키마 정의
+    var UserSchema = mongoose.Schema({
+        id: String,
+        password: String,
+        role: String,
+        userinfo: Object,
+        dailylog: Array,
+    });
+
+    var NoticeSchema = mongoose.Schema({
+        id: {type: String, required:true, unique:true} ,
+        date: String,
+        title: String,
+        content: String,
+        writer_id: String,
+    });
+
+    var IdSchema = mongoose.Schema({
+        id: String,
+        sequence: Number
+    });
+
+    var SponSchema = mongoose.Schema({
+        id: {type: String, require:true, unique:true} ,
+        date: String,
+        title: String,
+        content: String,
+        volunteer_institution: String, 
+        writer_id: String,
+    });
+
+    console.log('UserSchem 정의함');
+
+    // UserModel 정의
+    UserModel = mongoose.model("users", UserSchema);
+    NoticeModel = mongoose.model("notices", NoticeSchema);
+    SponModel =  mongoose.model("spons", SponSchema);
+    IdModel = mongoose.model("idschemas", IdSchema);
+
+    console.log('UserModel 정의함');
+    console.log('NoticeModel 정의함');
+
+    // 연결 끊어졌을 때 5초 후 재연결
+    database.on('disconnected', function() {
+        console.log('연결이 끊어졌습니다. 5초 후 다시 연결합니다.');
+        setInterval(connectDB, 5000);
+    })
+}
+
+var router = express.Router();
+
+
+//사용자를 인증하는 함수
+var authUser = function(database, callback) {
+
+    // 아이디와 비밀번호를 사용해 검색
+    var object = {
+        "user": null,
+    };
+    
+    UserModel.find({},{id:1, password:1, role:1, _id:0}, function(err, results){
+        if(err) {
+            callback(err, null);
+            return;
+        }
+
+        // console.log('아이디 [%s], 비밀번호 [%s]로 사용자 검색 결과', id, password);
+        object["user"] = results;
+        console.log(object);
+
+        if(results.length >0) {
+            console.log('일치하는 사용자 찾음');
+            callback(null, results);
+        } else {
+            console.log('일치하는 사용자를 찾지 못함');
+            callback(null, null);
+        }
+    });
+};
+
+// 사용자를 추가하는 함수
+var addUser = function(database, id, password, role, name, age, school, introduce, callback) {
+    console.log('addUser 호출됨: ' + id + ', ' + password + ', ' +role + ', ' + age + ', ' + school + ', ' + introduce);
+
+    // UserModel의 인스턴스 생성
+    var user = new UserModel(
+        {"id":id, 
+        "password":password, 
+        "role":role,
+        "userinfo":{
+            "name":name,
+            "age":age,
+            "school":school,
+            "introduce":introduce
+        },
+        "dailylog":[
+
+        ]
+    });
+
+    // save로 저장
+    user.save(function(err){
+        if(err) {
+            return;
+        }
+
+        console.log('사용자 데이터 추가');
+        callback(null, user);
+    });
+
+    
+};
+
+var addDailylog = function(database, userid,date, title, content, callback) 
+{
+    UserModel.update(
+        {id:userid},{$push:{dailylog:{"date":date, "title":title, "content":content}}}, function(err, results) {
+            if(err) {
+                callback(err, null);
+                return;
+            }
+            callback(null, results);
+        }
+        
+    );
+
+};
+
+// 로그인 라우팅 함수 - 데이터베이스의 정보와 비교
+router.route('/process/login').post(function(req, res){
+    console.log('/process/login 호출');
+
+    if(database) {
+        authUser(database, function(err, docs){
+            if(err) {throw err;}
+
+            if(docs) {
+                console.dir(docs);
+                var username = docs[0].name;
+                res.writeHead('200', {'Content-Type':'text/html; charset=utf8'});
+                // res.write('<h1>로그인성공</h1>');
+                // res.write('<div><p>사용자 아이디: ' + paramId + '</p></div>');
+                // res.write('<div><p>사용자 이름: ' + username + '</p></div>');
+                // res.write('<br><br><a href="/public/login.html">다시 로그인하기</a>');
+                res.end();
+            } else {
+                res.writeHead('200', {'Content-Type':'text/html; charset=utf8'});
+                res.write('<h1>로그인실패</h1>');
+                res.write('<div><p>아이디와 비밀번호를 다시 확인하십시오</p></div>');
+                res.write('<br><br><a href="/public/login.html">다시 로그인하기</a>');
+                res.end();
+            }
+        });
+    }else {
+        res.writeHead('200', {'Content-Type':'text/html; charset=utf8'});
+        res.write('<h1>데이터베이스 연결 실패</h1>');
+        res.write('<div><p>데이터베이스에 연결하지 못했습니다</p></div>');
+        res.end();
+                
+    }
+});
+// 사용자추가 라우팅 함수 - 데이터베이스의 정보와 비교
+router.route('/process/adduser').post(function(req, res){
+    console.log('/process/adduser 호출');
+
+    var paramId = req.body.id || req.query.id;
+    var paramPassword = req.body.password || req.query.password;
+    var paramRole = req.body.role || req.query.role;
+    var paramName = req.body.name || req.query.nmae;
+    var paramAge = req.body.age || req.query.age;
+    var paramSchool = req.body.school || req.query.school;
+    var paramIntrouce = req.body.introduce || req.query.introduce;
+
+    console.log('요청 파라미터: ' + paramId +', ' + paramPassword +', ' + paramRole +' '+ paramName +', ' + paramAge +', ' + paramSchool + ', '+paramIntrouce);
+
+    //데이터베이스 객체가 초기화된 경우, adduser 함수 호출하여 사용자 추가
+    if(database) {
+        addUser(database, paramId, paramPassword, paramRole,paramName, paramAge, paramSchool, paramIntrouce, function(err, result) {
+            if(err) {throw err;}
+            
+            console.log(result);
+            // 결과 객체 확인하여 추가된 데이터 있으면 성공 응답 전송
+            if(result) {
+                console.dir(result);             
+                res.writeHead('200', {'Content-Type':'text/html; charset=utf8'});
+                res.write('<h1>사용자 추가 성공</h1>');
+                res.end();
+            } else { //결과 객체가 없으면 실패 응답 전송
+                res.writeHead('200', {'Content-Type':'text/html; charset=utf8'});
+                res.write('<h1>사용자 추가 실패</h1>');
+                res.end();
+            }
+        });
+    }else { // 데이터베이스 객체가 초기화되지 않은 경우 실패 응답 전송
+        res.writeHead('200', {'Content-Type':'text/html; charset=utf8'});
+        res.write('<h1>데이터베이스 연결 실패</h1>');
+        res.write('<div><p>데이터베이스에 연결하지 못했습니다</p></div>');
+        res.end();
+    }
+});
+
+router.route('/process/dailylog').post(function(req, res){
+    console.log('/process/dailylog 호출');
+    var paramId = req.body.id
+    var paramDate = req.body.date
+    var paramTitle = req.body.title;
+    var paramContent = req.body.content
+
+    if(database) {
+        addDailylog(database, paramId, paramDate, paramTitle, paramContent, function(err, docs){
+            if(err) {throw err;}
+
+            if(docs) {
+                console.dir(docs);
+                res.writeHead('200', {'Content-Type':'text/html; charset=utf8'});
+                res.write('<h1>dailylog추가 성공</h1>');
+                // res.write('<div><p>사용자 아이디: ' + paramId + '</p></div>');
+                // res.write('<div><p>사용자 이름: ' + username + '</p></div>');
+                // res.write('<br><br><a href="/public/login.html">다시 로그인하기</a>');
+                res.end();
+            } else {
+                res.writeHead('200', {'Content-Type':'text/html; charset=utf8'});
+                res.write('<h1>로그인실패</h1>');
+                res.write('<div><p>아이디와 비밀번호를 다시 확인하십시오</p></div>');
+                res.write('<br><br><a href="/public/login.html">다시 로그인하기</a>');
+                res.end();
+            }
+        });
+    }else {
+        res.writeHead('200', {'Content-Type':'text/html; charset=utf8'});
+        res.write('<h1>데이터베이스 연결 실패</h1>');
+        res.write('<div><p>데이터베이스에 연결하지 못했습니다</p></div>');
+        res.end();
+                
+    }
+});
+
+//공지사항 count 개수
+var controller_noti_count = require('./mongoose_controller/process/notice/countnotice');
+router.route('/process/countnotice').all(function(req,res) {
+    console.log('countnotice');
+    controller_noti_count.countnotice(req, res, database, NoticeModel);
+});
+
+//공지사항 추가
+var controller_noti_add = require('./mongoose_controller/process/notice/addnotice');
+router.route('/process/addnotice').post(function(req,res) {
+    controller_noti_add.addnotice(req, res, database, NoticeModel, IdModel);
+});
+
+//공지사항 검색(page 인덱스 따라서)
+var controller_noti_select = require('./mongoose_controller/process/notice/selectnotice');
+router.route('/process/selectnotice').all(function(req,res) {
+    controller_noti_select.selectnotice(req, res, database, NoticeModel);
+});
+
+//후원 count 개수
+var controller_spon_count = require('./mongoose_controller/process/spon/countspon');
+router.route('/process/countspon').all(function(req, res) {
+    controller_spon_count.countspon(req, res, database, SponModel);
+});
+
+//후원 기업 추가
+var controller_spon_add = require('./mongoose_controller/process/spon/addspon');
+router.route('/process/addspon').all(function(req, res) {
+    controller_spon_add.addspon(req,res, database, SponModel, IdModel);
+});
+
+// //후원 기업 검색(page 인덱스 따라서)\
+// var controller_spon_select = require('./mongoose_controller/process/spon/selectspon');
+// router.route('/process/selectspon').all(function(req, res){
+//     controller_spon_select.selectspon(req,res,database, SponModel);
+// });
+
+// 라우터 객체 등록
+app.use('/', router);
+
+// ==== 404 오류 페이지 처리 ==== //
+var errorHandler = expressErrorHandler({
+    // static: {
+    //     '404': './public/404.html'
+    // }
+});
+
+app.use(expressErrorHandler.httpError(404));
+app.use(errorHandler);
+
+
+// ==== 서버 시작 ==== //
+http.createServer(app).listen(app.get('port'), function(){
+    console.log('서버가 시작되었습니다. 포트: ' + app.get('port'));
+
+    // 데이터베이스 연결
+    connectDB();
+})

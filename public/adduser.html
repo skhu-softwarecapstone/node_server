@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Add user test</title>
+    </head>
+    <body>
+        <form method="post" action="/process/adduser">
+            <table>
+                <tr>
+                    <td><label>아이디</label></td>
+                    <td><input type="text" name="id"></td>
+                </tr>
+                <tr>
+                    <td><label>비밀번호</label></td>
+                    <td><input type="password" name="password"></td>
+                </tr>
+                <tr>
+                    <td><label>역할</label></td>
+                    
+                    <td>Supportor<input type="radio" value="supportor" name="role"></td>
+                    <td>senior<input type="radio" value="senior"name="role"></td>
+                    <td>admin<input type="radio" value="admin" name="role"></td>
+                </tr>
+                <tr>
+                    <td><label>사용자명</label></td>
+                    <td><input type="text" name="name"></td>
+                </tr>
+                <tr>
+                    <td><label>나이</label></td>
+                    <td><input type="text" name="age"></td>
+                </tr>
+                <tr>
+                    <td><label>학교</label></td>
+                    <td><input type="text" name="school"></td>
+                </tr>
+                <tr>
+                    <td><label>자기소개</label></td>
+                    <td><input type="text" name="introduce"></td>
+                </tr>
+
+            </table>
+            <input type="submit" value="전송" name="">
+        </form>
+    </body>
+</html>
